@@ -1,0 +1,29 @@
+# ========== 通用Python规则（复制上面的基础版） ==========
+__pycache__/
+*.py[cod]
+venv/
+...
+
+# ========== ComfyUI专属规则 ==========
+# 1. 生成的图片/输出文件
+output/
+input/
+temp/
+*.png
+*.jpg
+*.jpeg
+*.webp
+
+# 2. ComfyUI缓存/模型（如果不想提交大模型文件）
+models/
+cache/
+checkpoints/
+loras/
+vae/
+embeddings/
+upscale_models/
+
+
+# 4. ComfyUI配置文件（本地修改的配置）
+config.json
+extra_model_paths.yaml
