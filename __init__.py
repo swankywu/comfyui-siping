@@ -1,18 +1,21 @@
 # 导入两个节点文件中的类
 from .ParseFilePath import ParseFilePath
 from .GetImagePath import GetImagePathAndName
+from .GetVideoFilename import GetVideoFileName
 
 # 汇总所有节点的注册信息（关键）
 NODE_CLASS_MAPPINGS = {
     # 格式："节点显示标识": 节点类名
     "siping_ParseFilePath": ParseFilePath,
-    "siping_GetImagePathAndName": GetImagePathAndName
+    "siping_GetImagePathAndName": GetImagePathAndName,
+    "siping_GetVideoFileName": GetVideoFileName
 }
 
 # 汇总节点在界面上显示的名称
 NODE_DISPLAY_NAME_MAPPINGS = {
     "siping_ParseFilePath": "Parse File Path (拆分路径)",
-    "siping_GetImagePathAndName": "Get Image Path & Name"
+    "siping_GetImagePathAndName": "Get Image Path & Name",
+    "siping_GetVideoFileName": "Get Video File Name"
 }
 
 # 可选：声明这是一个ComfyUI自定义节点模块
