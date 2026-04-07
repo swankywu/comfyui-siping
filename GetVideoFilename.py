@@ -18,9 +18,9 @@ class GetVideoFileName:
             }
         }
 
-    # 输出接口：纯文件名、完整路径、文件后缀
-    RETURN_TYPES = ("STRING", "STRING", "STRING")
-    RETURN_NAMES = ("纯文件名", "完整文件路径", "文件后缀")
+    # 输出接口：纯文件名、完整路径、文件后缀、不带扩展名的文件名
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING")
+    RETURN_NAMES = ("纯文件名", "完整文件路径", "文件后缀", "不带扩展名的文件名")
     
     FUNCTION = "get_filename"  # 执行函数名
     CATEGORY = "视频工具"      # 节点分类
@@ -40,6 +40,9 @@ class GetVideoFileName:
         # 3. 提取文件后缀（不带.）
         file_ext = Path(filename).suffix.lstrip(".")
 
-        # 返回三个输出值
-        return (filename, video_path, file_ext)
+        # 4. 提取不带扩展名的文件名
+        filename_without_ext = Path(filename).stem
+
+        # 返回四个输出值
+        return (filename, video_path, file_ext, filename_without_ext)
 
