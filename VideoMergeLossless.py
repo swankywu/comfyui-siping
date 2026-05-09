@@ -70,9 +70,12 @@ class VideoMergeLossless:
             output_path = os.path.join(full_output_folder, output_filename)
 
             # 创建临时列表文件（FFmpeg 合并专用）
-            with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as f:
+            # 注意：Windows路径中的反斜杠需要转义或转换为正斜杠
+            with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt", encoding="utf-8") as f:
                 for path in lines:
-                    f.write(f"file '{path}'\n")
+                    # 转换为正斜杠并转义单引号
+                    safe_path = path.replace("\\", "/").replace("'", "'\\''")
+                    f.write(f"file '{safe_path}'\n")
                 list_path = f.name
 
             # FFmpeg 命令：不重新编码，极速合并
@@ -87,16 +90,23 @@ class VideoMergeLossless:
             ]
 
             # 执行合并
-            subprocess.run(
+            result = subprocess.run(
                 cmd,
-                check=True,
+                check=False,
                 capture_output=True,
                 text=True,
                 encoding="utf-8"
             )
 
             # 删除临时文件
-            os.unlink(list_path)
+            try:
+                os.unlink(list_path)
+            except:
+                pass
+
+            if result.returncode != 0:
+                error_msg = result.stderr or result.stdout or "未知错误"
+                raise Exception(f"ffmpeg 错误 (返回码 {result.returncode}):\n{error_msg}")
             return (output_path,)
 
         except Exception as e:
