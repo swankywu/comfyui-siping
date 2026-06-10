@@ -1,4 +1,5 @@
 # 导入两个节点文件中的类
+from .LTXResolution import LTXResolution
 from .ParseFilePath import ParseFilePath
 from .GetImagePath import GetImagePathAndName
 from .GetVideoFileName import GetVideoFileName
@@ -11,6 +12,7 @@ NODE_CLASS_MAPPINGS = {
     "siping_GetImagePathAndName": GetImagePathAndName,
     "siping_GetVideoFileName": GetVideoFileName,
     "siping_VideoMergeLossless": VideoMergeLossless,
+    "siping_LTXResolution": LTXResolution
 }
 
 # 汇总节点在界面上显示的名称
@@ -19,6 +21,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "siping_GetImagePathAndName": "Get Image Path & Name",
     "siping_GetVideoFileName": "Get Video File Name",
     "siping_VideoMergeLossless": "VideoMerge Lossless",
+    "siping_LTXResolution": "LTX Resolution"
 }
 
 # 可选：声明这是一个ComfyUI自定义节点模块
