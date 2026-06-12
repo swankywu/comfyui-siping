@@ -4,7 +4,7 @@ class LTXResolution:
     """
 
     RESOLUTION_OPTIONS = [
-        "1280x720",
+        "1280x736",
         "1536x832",
         "1920x1088",
         "2048x1152",
@@ -12,7 +12,7 @@ class LTXResolution:
     ]
 
     RESOLUTION_MAP = {
-        "1280x720": (1280, 720),
+        "1280x736": (1280, 736),
         "1536x832": (1536, 832),
         "1920x1088": (1920, 1088),
         "2048x1152": (2048, 1152),
@@ -23,7 +23,7 @@ class LTXResolution:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "resolution": (cls.RESOLUTION_OPTIONS, {"default": "1280x720"}),
+                "resolution": (cls.RESOLUTION_OPTIONS, {"default": "1280x736"}),
             }
         }
 
