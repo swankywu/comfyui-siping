@@ -4,6 +4,9 @@ from .ParseFilePath import ParseFilePath
 from .GetImagePath import GetImagePathAndName
 from .GetVideoFileName import GetVideoFileName
 from .VideoMergeLossless import VideoMergeLossless
+from .ImageWithExtraInfo import SPImageLoadWithMetadata 
+from .ImageWithExtraInfo import SPImageSaveWithExtraMetadata
+
 
 # 汇总所有节点的注册信息（关键）
 NODE_CLASS_MAPPINGS = {
@@ -12,7 +15,10 @@ NODE_CLASS_MAPPINGS = {
     "siping_GetImagePathAndName": GetImagePathAndName,
     "siping_GetVideoFileName": GetVideoFileName,
     "siping_VideoMergeLossless": VideoMergeLossless,
-    "siping_LTXResolution": LTXResolution
+    "siping_LTXResolution": LTXResolution,
+    "siping_SPImageLoadWithMetadata": SPImageLoadWithMetadata,
+    "siping_SPImageSaveWithExtraMetadata": SPImageSaveWithExtraMetadata,
+    
 }
 
 # 汇总节点在界面上显示的名称
@@ -21,7 +27,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "siping_GetImagePathAndName": "Get Image Path & Name",
     "siping_GetVideoFileName": "Get Video File Name",
     "siping_VideoMergeLossless": "VideoMerge Lossless",
-    "siping_LTXResolution": "LTX Resolution"
+    "siping_LTXResolution": "LTX Resolution",
+    "siping_SPImageLoadWithMetadata": "Load Image SP",
+    "siping_SPImageSaveWithExtraMetadata": "Save Image SP",
 }
 
 # 可选：声明这是一个ComfyUI自定义节点模块
