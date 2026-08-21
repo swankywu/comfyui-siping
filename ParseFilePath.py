@@ -1,4 +1,5 @@
 import os
+import re
 
 class ParseFilePath:
     @classmethod
@@ -13,12 +14,17 @@ class ParseFilePath:
         }
     
     # 返回类型：目录、纯文件名（无扩展名）、完整文件名、扩展名
-    RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING")
-    RETURN_NAMES = ("directory", "filename_no_ext", "filename_full", "extension")
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING", "STRING")
+    RETURN_NAMES = ("directory", "filename_no_ext", "filename_full", "filename_no_ending_num", "extension")
     FUNCTION = "parse_path"
     CATEGORY = "utils/path"
 
+
+
     def parse_path(self, file_path):
+        def trim_tail_part(s: str) -> str:
+            # _+ 1个或多个下划线，接着数字，后面0或多个下划线，字符串结尾
+            return re.sub(r'_+\d+_*$', '', s)
         # 处理路径，兼容不同操作系统（Windows/Linux/Mac）
         file_path = os.path.normpath(file_path)
         
@@ -30,11 +36,14 @@ class ParseFilePath:
         
         # 3. 拆分文件名和扩展名
         filename_no_ext, extension = os.path.splitext(filename_full)
+
+        # 4. 移除文件名末尾的数字（如 file_00123_.png → file, file__00123_ → file）
+        filename_no_ending_num = trim_tail_part(filename_no_ext)
         
         # 移除扩展名前的点（如 .png → png）
         extension = extension.lstrip('.')
         
-        return (directory, filename_no_ext, filename_full, extension)
+        return (directory, filename_no_ext, filename_full, filename_no_ending_num, extension)
 
 # 注册节点
 # NODE_CLASS_MAPPINGS = {
