@@ -10,8 +10,9 @@ import numpy as np
 from pathlib import Path
 from PIL import Image, ImageOps
 from PIL.ExifTags import TAGS, GPSTAGS, IFD
-from PIL.PngImagePlugin import PngImageFile
+from PIL.PngImagePlugin import PngImageFile, PngInfo
 from PIL.JpegImagePlugin import JpegImageFile
+from PIL.WebPImagePlugin import WebPImageFile
 from nodes import PreviewImage, SaveImage
 import folder_paths
 
@@ -138,6 +139,8 @@ class SPImageSaveWithExtraMetadata(SaveImage):
                 # if it is required, in next node does not receive any value even the cache!
                 "image": ("IMAGE",),
                 "filename_prefix": ("STRING", {"default": "ComfyUI"}),
+                "file_type": (["png", "jpg", "webp"], {"default": "png"}),
+                "quality": ("INT", {"default": 92, "min": 1, "max": 100, "tooltip": "仅对 jpg / webp 生效"}),
                 "with_workflow": BOOLEAN,
                 "meta_key": ("STRING", {"default": "workflow"}),
                            },
@@ -162,7 +165,7 @@ class SPImageSaveWithExtraMetadata(SaveImage):
 
     FUNCTION = "execute"
 
-    def execute(self, image=None, filename_prefix="ComfyUI", with_workflow=True, meta_key="workflow", metadata_extra=None, prompt=None, extra_pnginfo=None):
+    def execute(self, image=None, filename_prefix="ComfyUI", file_type="png", quality=92, with_workflow=True, meta_key="workflow", metadata_extra=None, prompt=None, extra_pnginfo=None):
         data = {
             "result": [''],
             "ui": {
@@ -193,7 +196,7 @@ class SPImageSaveWithExtraMetadata(SaveImage):
 
                         extra_pnginfo_new[k] = v
 
-            saved = super().save_images(image, filename_prefix, prompt, extra_pnginfo_new)
+            saved = self._save_images(image, filename_prefix, prompt, extra_pnginfo_new, file_type, quality)
 
             image = saved["ui"]["images"][0]
             image_path = Path(self.output_dir).joinpath(image["subfolder"], image["filename"])
@@ -209,6 +212,88 @@ class SPImageSaveWithExtraMetadata(SaveImage):
             logger.debug("Source: Empty on CImageSaveWithExtraMetadata")
 
         return data
+
+    # 支持格式的扩展名映射
+    _EXT_MAP = {
+        "png": "png",
+        "jpg": "jpg",
+        "jpeg": "jpg",
+        "webp": "webp",
+    }
+
+    def _save_images(self, images, filename_prefix, prompt, extra_pnginfo, file_type="png", quality=92):
+        """按指定格式保存图片，并尽可能嵌入元数据。
+
+        - png: 通过 PngInfo 写入 prompt / extra_pnginfo（与 ComfyUI 原生 SaveImage 一致）
+        - jpg / webp: 通过 piexif 把 prompt 写入 EXIF 271(Make)，
+          extra_pnginfo 合并 JSON 写入 EXIF 270(ImageDescription)
+        """
+        file_type = (file_type or "png").lower()
+        ext = self._EXT_MAP.get(file_type, "png")
+
+        filename_prefix += self.prefix_append
+        dir_path, basefilename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(
+            filename_prefix, self.output_dir, images[0].shape[1], images[0].shape[2]
+        )
+
+        results = []
+        for image in images:
+            i = 255. * image.cpu().numpy()
+            img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
+
+            filename = f"{basefilename}_{counter:05}_.{ext}"
+            file_path = os.path.join(dir_path, filename)
+
+            if ext == "png":
+                metadata = PngInfo()
+                if prompt is not None:
+                    metadata.add_text("prompt", json.dumps(prompt))
+                if extra_pnginfo is not None:
+                    for x in extra_pnginfo:
+                        metadata.add_text(x, json.dumps(extra_pnginfo[x]))
+                img.save(file_path, pnginfo=metadata, compress_level=4)
+            else:
+                # jpg / webp：通过 EXIF 嵌入元数据
+                exif_bytes = self._build_exif_bytes(prompt, extra_pnginfo)
+                img = img.convert("RGB")
+                if exif_bytes:
+                    img.save(file_path, format=("JPEG" if ext == "jpg" else "WEBP"),
+                             quality=quality, exif=exif_bytes)
+                else:
+                    img.save(file_path, format=("JPEG" if ext == "jpg" else "WEBP"),
+                             quality=quality)
+
+            results.append({
+                "filename": filename,
+                "subfolder": subfolder,
+                "type": "output",
+            })
+            counter += 1
+
+        return {"ui": {"images": results}}
+
+    @staticmethod
+    def _build_exif_bytes(prompt, extra_pnginfo):
+        """构造 EXIF 字节串；EXIF 单段有 ~64KB 限制，超限时逐级降级。"""
+        exif_dict = {"0th": {}}
+        if prompt is not None:
+            exif_dict["0th"][piexif.ImageIFD.Make] = json.dumps(prompt, ensure_ascii=True)
+        if extra_pnginfo is not None:
+            exif_dict["0th"][piexif.ImageIFD.ImageDescription] = json.dumps(extra_pnginfo, ensure_ascii=True)
+
+        try:
+            return piexif.dump(exif_dict)
+        except Exception as e:
+            logger.warn(f"EXIF dump failed (metadata too large?), falling back to prompt-only: {e}")
+            # 降级 1：只保留 prompt
+            try:
+                exif_dict = {"0th": {}}
+                if prompt is not None:
+                    exif_dict["0th"][piexif.ImageIFD.Make] = json.dumps(prompt, ensure_ascii=True)
+                return piexif.dump(exif_dict)
+            except Exception as e2:
+                logger.warn(f"EXIF dump failed even prompt-only, image will be saved without metadata: {e2}")
+                return b""
 
 
 
@@ -287,6 +372,28 @@ def buildMetadata(image_path):
 
             except KeyError:
                 pass
+
+    # webp：通过 piexif 读取 EXIF（保存节点写入的 prompt / workflow 等）
+    if isinstance(img, WebPImageFile):
+        try:
+            exif_data = piexif.load(str(image_path))
+            for ifd_name in ("0th", "Exif", "GPS", "Interop", "1st"):
+                ifd = exif_data.get(ifd_name)
+                if not ifd:
+                    continue
+                resolve = GPSTAGS if ifd_name == "GPS" else TAGS
+                for k, v in ifd.items():
+                    if v is None:
+                        continue
+                    tag = str(resolve.get(k, k))
+                    value = v.decode("utf-8", errors="replace") if isinstance(v, bytes) else str(v)
+                    # 尝试解析为 JSON（保存时写入的是 JSON 字符串）
+                    try:
+                        metadata[tag] = json.loads(value)
+                    except Exception:
+                        metadata[tag] = value
+        except Exception as e:
+            logger.debug(f"Error reading EXIF from WebP: {e}")
 
 
     return img, prompt, metadata
