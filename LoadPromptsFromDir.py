@@ -30,8 +30,8 @@ class LoadPromptsFromDir:
     FUNCTION = "load_prompts"
     CATEGORY = "utils/path"
 
-    _SECTION_ZH_RE = re.compile(r'^##\s*中文版提示词.*$', re.MULTILINE)
-    _SECTION_H3_RE = re.compile(r'^##\s*H3\s*Prompt.*$', re.MULTILINE | re.IGNORECASE)
+    _SECTION_ZH_RE = re.compile(r'^.*中文版提示词.*$', re.MULTILINE)
+    _SECTION_H3_RE = re.compile(r'^.*Prompt.*$', re.MULTILINE | re.IGNORECASE)
     _FENCE_RE = re.compile(r'```([^\n`]*)\n(.*?)```', re.DOTALL)
     _SECONDS_RE = re.compile(r'_(\d+)s\.md$', re.IGNORECASE)
 
