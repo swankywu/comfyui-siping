@@ -7,6 +7,8 @@ from .VideoMergeLossless import VideoMergeLossless
 from .ImageWithExtraInfo import SPImageLoadWithMetadata 
 from .ImageWithExtraInfo import SPImageSaveWithExtraMetadata
 from .LoadPromptsFromDir import LoadPromptsFromDir
+from .SPEmpty import SPEmpty
+from .LanguageSelect import LanguageSelect
 
 
 # 汇总所有节点的注册信息（关键）
@@ -20,6 +22,8 @@ NODE_CLASS_MAPPINGS = {
     "siping_SPImageLoadWithMetadata": SPImageLoadWithMetadata,
     "siping_SPImageSaveWithExtraMetadata": SPImageSaveWithExtraMetadata,
     "siping_LoadPromptsFromDir": LoadPromptsFromDir,
+    "siping_SPEmpty": SPEmpty,
+    "siping_LanguageSelect": LanguageSelect,
 
 }
 
@@ -33,6 +37,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "siping_SPImageLoadWithMetadata": "Load Image SP",
     "siping_SPImageSaveWithExtraMetadata": "Save Image SP",
     "siping_LoadPromptsFromDir": "Load Prompts From Dir (按目录加载提示词)",
+    "siping_SPEmpty": "SP Empty (透传占位)",
+    "siping_LanguageSelect": "Language Select (语言选择)",
 }
 
 # 可选：声明这是一个ComfyUI自定义节点模块
