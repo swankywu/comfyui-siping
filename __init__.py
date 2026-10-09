@@ -11,6 +11,7 @@ from .SPEmpty import SPEmpty
 from .LanguageSelect import LanguageSelect
 from .SPLoadLoRA import SPLoadLoRA
 from .SPLoadDiffusionModel import SPLoadDiffusionModel
+from .SPCropImageWithAlpha import SPCropImageWithAlpha
 
 # 声明前端扩展目录：ComfyUI 0.3x+ 只有显式导出 WEB_DIRECTORY
 # （或 pyproject.toml 的 [tool.comfy] web）才会把 web/ 下的 JS 注册给浏览器
@@ -32,6 +33,7 @@ NODE_CLASS_MAPPINGS = {
     "siping_LanguageSelect": LanguageSelect,
     "siping_SPLoadLoRA": SPLoadLoRA,
     "siping_SPLoadDiffusionModel": SPLoadDiffusionModel,
+    "siping_SPCropImageWithAlpha": SPCropImageWithAlpha,
 
 }
 
@@ -49,6 +51,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "siping_LanguageSelect": "Language Select (语言选择)",
     "siping_SPLoadLoRA": "SP Load LoRA (带过滤)",
     "siping_SPLoadDiffusionModel": "SP Load Diffusion Model (带过滤)",
+    "siping_SPCropImageWithAlpha": "SP Crop Image With Alpha (保留 Alpha)",
 }
 
 # 可选：声明这是一个ComfyUI自定义节点模块
