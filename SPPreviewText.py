@@ -4,6 +4,9 @@ class SPPreviewText:
     接受任意类型输入（字符串 / 数字 / 图像张量 / 列表 / 字典等），
     将其转换为可读的文本进行预览，并作为输出节点直接输出文本。
     由于输出类型为 STRING，ComfyUI 不会对结果做任何文件保存。
+
+    compare_str（可选）：提供后与即将输出的 text 做比较；
+    若两者一致则返回 null（空集），不一致则按正常逻辑输出；不提供则按正常逻辑输出。
     """
 
     @classmethod
@@ -12,6 +15,13 @@ class SPPreviewText:
             "required": {
                 # "*" 表示接受任意类型连接，仅用于预览，不会被修改
                 "any": ("*",),
+            },
+            "optional": {
+                # 比较字符串：非空时生效；留空表示不比较
+                "compare_str": ("STRING", {
+                    "default": "",
+                    "multiline": False,
+                }),
             },
         }
 
@@ -50,8 +60,14 @@ class SPPreviewText:
         # 列表 / 元组及其余类型
         return str(value)
 
-    def preview(self, any=None):
+    def preview(self, any=None, compare_str=""):
         text = self._to_text(any)
+
+        # 提供了 compare_str 且与输出一致 → 返回 null（空集）
+        if compare_str and compare_str == text:
+            return {"ui": {"text": (None,)}, "result": (None,)}
+
+        # 其余情况（未提供 compare_str / 不一致）按现有逻辑正常输出
         # 与官方 PreviewAny 一致：前端 onExecuted(message) 收到的 message
         # 只来自返回值的 "ui" 字段，直接返回元组会导致预览区拿不到内容。
         return {"ui": {"text": (text,)}, "result": (text,)}
