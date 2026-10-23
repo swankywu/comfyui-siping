@@ -18,9 +18,16 @@ SPVideo60FPS — 用 ffmpeg 把高帧率视频统一转成 60fps
   - `video_path` 接受文件路径字符串（支持相对 ComfyUI 输出目录的路径）。
   - 两者都提供时以 `video` 为准；都不提供则报错。
   - 透传时直接返回原视频对象，转换时把落盘文件重新包成 VIDEO。
+
+内存视频（BytesIO）的磁盘 IO 优化：
+  - 探测帧率/时长用 av（PyAV）直接从内存流读，不落盘（io.BytesIO 可 seek，能读到 moov 在末尾的 mp4）。
+  - ≤60fps 透传时 BytesIO 直写输出目录（不经过临时文件）。
+  - 只有 >60fps 转码才落一次盘喂 ffmpeg（ffmpeg 从 pipe 读不了 moov 在末尾的 mp4，无法纯内存）。
+  - av 不可用时自动降级回「落盘临时文件 + ffprobe」。
 """
 
 import os
+import json
 import shutil
 import subprocess
 import tempfile
@@ -94,6 +101,9 @@ def _get_stream_source(video):
             val = video.get(key)
             if val:
                 return val
+    # 4) 兜底：裸 file-like（io.BytesIO 等内存流），直接当作内存视频
+    if hasattr(video, "read"):
+        return video
     return None
 
 
@@ -158,35 +168,86 @@ def _parse_fraction(s):
         return 0.0
 
 
-def _probe_fps(path):
-    """用 ffprobe 读取视频平均帧率。返回 float；探测失败返回 0.0。"""
+def _probe_meta(path):
+    """用 ffprobe 一次拿到帧率与时长。返回 (fps, duration)，探测失败返回 (0.0, 0.0)。"""
     ffprobe = shutil.which("ffprobe")
     if not ffprobe:
-        return 0.0
+        return 0.0, 0.0
 
-    # avg_frame_rate 对可变帧率更准确，r_frame_rate 作为回退
+    # 一次调用同时取视频流帧率与容器时长（json 输出便于结构化解析）
     cmd = [
         ffprobe, "-v", "error",
         "-select_streams", "v:0",
         "-show_entries", "stream=avg_frame_rate,r_frame_rate",
-        "-of", "csv=p=0",
+        "-show_entries", "format=duration",
+        "-of", "json",
         path,
     ]
     try:
         result = subprocess.run(cmd, check=False, capture_output=True, text=True, encoding="utf-8")
         if result.returncode != 0:
-            return 0.0
-        parts = (result.stdout or "").strip().split(",")
-        if not parts or not parts[0].strip():
-            return 0.0
-        avg = _parse_fraction(parts[0])
-        if avg > 0:
-            return avg
-        if len(parts) > 1:
-            return _parse_fraction(parts[1])
-        return 0.0
+            return 0.0, 0.0
+        data = json.loads(result.stdout or "{}")
+        stream = (data.get("streams") or [{}])[0]
+        # avg_frame_rate 对可变帧率更准确，r_frame_rate 作为回退
+        fps = _parse_fraction(stream.get("avg_frame_rate", ""))
+        if fps <= 0:
+            fps = _parse_fraction(stream.get("r_frame_rate", ""))
+        try:
+            duration = float((data.get("format") or {}).get("duration", "0"))
+        except Exception:
+            duration = 0.0
+        return fps, duration
     except Exception:
-        return 0.0
+        return 0.0, 0.0
+
+
+def _probe_stream_with_av(stream):
+    """
+    用 av（PyAV）直接从内存流读帧率与时长，**不落盘**。
+
+    io.BytesIO 可 seek，因此 av 能读到 moov 在末尾的 mp4（这正是 ffmpeg 命令行
+    从 pipe 读做不到的）。返回 (fps, duration)；av 不可用或解析失败返回 (None, None)。
+    """
+    try:
+        import av
+    except Exception:
+        return None, None
+    try:
+        try:
+            stream.seek(0)
+        except Exception:
+            pass
+        container = av.open(stream)
+        try:
+            video = container.streams.video[0]
+            fps = float(video.average_rate) if video.average_rate else 0.0
+            duration = float(container.duration) / 1e6 if container.duration else 0.0
+            return (fps, duration) if fps > 0 else (None, None)
+        finally:
+            container.close()
+    except Exception:
+        return None, None
+
+
+def _write_stream_to_output(stream, filename_prefix):
+    """把内存流直接写到输出目录（正式命名，固定 .mp4），返回新路径。用于内存视频的透传。"""
+    full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(
+        filename_prefix,
+        folder_paths.get_output_directory(),
+        1920,
+        1080,
+    )
+    os.makedirs(full_output_folder, exist_ok=True)
+    output_filename = f"{filename}_{counter:05}_.mp4"
+    output_path = os.path.join(full_output_folder, output_filename)
+    try:
+        stream.seek(0)
+    except Exception:
+        pass
+    with open(output_path, "wb") as f:
+        shutil.copyfileobj(stream, f)
+    return output_path
 
 
 def _probe_duration(path):
@@ -209,7 +270,7 @@ def _probe_duration(path):
         return 0.0
 
 
-def _transcode_with_progress(src_path, output_path, preset, crf):
+def _transcode_with_progress(src_path, output_path, preset, crf, duration=None):
     """
     用 ffmpeg 把 `src_path` 转成 60fps，并把实时进度汇报给 ComfyUI（ProgressBar）。
 
@@ -217,11 +278,13 @@ def _transcode_with_progress(src_path, output_path, preset, crf):
     - `-nostats` 关掉 stderr 上的人类可读统计，只留错误信息；
     - stderr 用后台线程读，避免管道缓冲区写满把 ffmpeg 卡死（死锁）；
     - 失败时把 stderr 尾部抛出来，方便定位。
+    - `duration` 优先用调用方已探测到的值；为 None 时才自己 ffprobe 一次。
     """
     # 延迟导入：ProgressBar 依赖 ComfyUI 执行环境（非 ComfyUI 环境下 import 会失败）
     from comfy.utils import ProgressBar
 
-    duration = _probe_duration(src_path)
+    if duration is None:
+        duration = _probe_duration(src_path)
 
     cmd = [
         "ffmpeg",
@@ -352,43 +415,56 @@ class SPVideo60FPS:
                 "未提供输入：请连接 `video`（VIDEO）或填写 `video_path`（文件路径），二者至少提供一个。"
             )
 
-        # 2. 物化为磁盘文件：
-        #    - 字符串路径 → 解析出绝对路径（相对路径回退到 ComfyUI 输出目录）
-        #    - BytesIO / file-like（内存视频，无磁盘路径）→ 先落盘到临时文件
-        is_memory = False
-        if isinstance(source, str):
-            source_path = _normalize_path(source)
-            resolved = _resolve_existing(source_path)
-            if resolved is None:
-                raise Exception(f"视频文件不存在：{source_path}")
-        else:
-            resolved = _stream_to_tempfile(source)
-            is_memory = True
+        is_memory = not isinstance(source, str)
+        resolved = None   # 磁盘输入的绝对路径
+        tmp_path = None   # 内存视频不得已落盘时的临时文件路径
 
         try:
-            # 3. 探测帧率
-            fps = _probe_fps(resolved)
+            # 2. 探测帧率 + 时长
+            #    - 磁盘路径：ffprobe 一次拿帧率 + 时长
+            #    - 内存视频：优先 av 直读（0 磁盘 IO）；av 不可用才落盘临时文件 + ffprobe
+            if is_memory:
+                fps, duration = _probe_stream_with_av(source)
+                if fps is None:
+                    tmp_path = _stream_to_tempfile(source)
+                    fps, duration = _probe_meta(tmp_path)
+            else:
+                source_path = _normalize_path(source)
+                resolved = _resolve_existing(source_path)
+                if resolved is None:
+                    raise Exception(f"视频文件不存在：{source_path}")
+                fps, duration = _probe_meta(resolved)
+
             if fps <= 0:
                 raise Exception(
                     "无法读取视频帧率（ffprobe 未找到或探测失败）。"
                     "请确认已安装 ffmpeg/ffprobe 并加入系统 PATH。"
                 )
 
-            # 4. ≤ 60fps：不转换，直接透传 + warning
+            # 3. ≤ 60fps：不转换，直接透传 + warning
             if fps <= 60:
                 logger.warning(
                     f"[SPVideo60FPS] 视频帧率 {fps:.2f} fps ≤ 60，无需转换，已直接输出原视频。"
                 )
                 if is_memory:
-                    # 内存视频没有持久化文件：把落盘好的临时文件复制到输出目录（内容原样，等价"另存"）
-                    out_path = _copy_to_output(resolved, filename_prefix)
+                    if tmp_path is None:
+                        # av 直读成功、无临时文件：把 BytesIO 原样直写输出目录（等价"另存"）
+                        out_path = _write_stream_to_output(source, filename_prefix)
+                    else:
+                        # av 降级：临时文件已落盘，直接复制到输出目录
+                        out_path = _copy_to_output(tmp_path, filename_prefix)
                 else:
                     out_path = resolved
                 return {
                     "result": (out_path, _as_video_output(out_path)),
                 }
 
-            # 5. > 60fps：ffmpeg 重编码到 60fps
+            # 4. > 60fps：ffmpeg 重编码到 60fps
+            #    内存视频到这一步才落盘——转码无法纯内存（ffmpeg 从 pipe 读不了 moov 在末尾的 mp4）
+            if is_memory and tmp_path is None:
+                tmp_path = _stream_to_tempfile(source)
+            src_for_ffmpeg = tmp_path if is_memory else resolved
+
             full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(
                 filename_prefix,
                 folder_paths.get_output_directory(),
@@ -401,7 +477,7 @@ class SPVideo60FPS:
             output_path = os.path.join(full_output_folder, output_filename)
 
             # 转码（实时汇报进度到 ComfyUI 前端；失败时内部抛异常）
-            _transcode_with_progress(resolved, output_path, preset, crf)
+            _transcode_with_progress(src_for_ffmpeg, output_path, preset, crf, duration)
 
             logger.info(f"[SPVideo60FPS] 已将视频从 {fps:.2f} fps 转换为 60 fps。")
 
@@ -419,9 +495,9 @@ class SPVideo60FPS:
                 "result": (output_path, _as_video_output(output_path)),
             }
         finally:
-            # 内存视频落盘的临时文件用完即删（透传时已复制到输出目录、转码时已产出新文件）
-            if is_memory:
+            # 内存视频落盘的临时文件用完即删（透传/转码都已产出正式文件）
+            if tmp_path:
                 try:
-                    os.unlink(resolved)
+                    os.unlink(tmp_path)
                 except Exception:
                     pass
