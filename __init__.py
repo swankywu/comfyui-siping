@@ -14,6 +14,7 @@ from .SPLoadDiffusionModel import SPLoadDiffusionModel
 from .SPCropImageWithAlpha import SPCropImageWithAlpha
 from .SPVideo60FPS import SPVideo60FPS
 from .SPPreviewText import SPPreviewText
+from .SPCaptureVideoFrame import SPCaptureVideoFrame
 
 # 声明前端扩展目录：ComfyUI 0.3x+ 只有显式导出 WEB_DIRECTORY
 # （或 pyproject.toml 的 [tool.comfy] web）才会把 web/ 下的 JS 注册给浏览器
@@ -38,6 +39,7 @@ NODE_CLASS_MAPPINGS = {
     "siping_SPCropImageWithAlpha": SPCropImageWithAlpha,
     "siping_SPVideo60FPS": SPVideo60FPS,
     "siping_SPPreviewText": SPPreviewText,
+    "siping_SPCaptureVideoFrame": SPCaptureVideoFrame,
 
 }
 
@@ -58,6 +60,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "siping_SPCropImageWithAlpha": "SP Crop Image With Alpha (保留 Alpha)",
     "siping_SPVideo60FPS": "SP Video 60FPS (高帧率转 60fps)",
     "siping_SPPreviewText": "SP Preview Text (文本预览)",
+    "siping_SPCaptureVideoFrame": "SP Capture Video Frame (截取视频帧)",
 }
 
 # 可选：声明这是一个ComfyUI自定义节点模块
