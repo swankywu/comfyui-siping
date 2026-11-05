@@ -3,8 +3,8 @@ class LanguageSelect:
     def INPUT_TYPES(s):
         return {
             "required": {
-                "language": (["中文", "英文", "日语", "法语", "德语", "西班牙语", "葡萄牙语"], {
-                    "default": "中文"
+                "language": (["自动", "中文", "英文", "日语", "法语", "德语", "西班牙语", "葡萄牙语"], {
+                    "default": "自动"
                 }),
             }
         }
