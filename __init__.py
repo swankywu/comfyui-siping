@@ -17,6 +17,7 @@ from .SPPreviewText import SPPreviewText
 from .SPCaptureVideoFrame import SPCaptureVideoFrame
 from .SPCutVideo import SPCutVideo
 from .SPImageFlip import SPImageFlip
+from .SPCropVideo import SPCropVideo
 
 # 声明前端扩展目录：ComfyUI 0.3x+ 只有显式导出 WEB_DIRECTORY
 # （或 pyproject.toml 的 [tool.comfy] web）才会把 web/ 下的 JS 注册给浏览器
@@ -44,6 +45,7 @@ NODE_CLASS_MAPPINGS = {
     "siping_SPCaptureVideoFrame": SPCaptureVideoFrame,
     "siping_SPCutVideo": SPCutVideo,
     "siping_SPImageFlip": SPImageFlip,
+    "siping_SPCropVideo": SPCropVideo,
 
 }
 
@@ -67,6 +69,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "siping_SPCaptureVideoFrame": "SP Capture Video Frame (截取视频帧)",
     "siping_SPCutVideo": "SP Cut Video (截取视频片段)",
     "siping_SPImageFlip": "SP Image Flip (图片翻转)",
+    "siping_SPCropVideo": "SP Crop Video (裁剪/旋转/翻转视频)",
 }
 
 # 可选：声明这是一个ComfyUI自定义节点模块
