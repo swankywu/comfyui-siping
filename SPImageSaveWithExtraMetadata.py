@@ -166,17 +166,11 @@ class SPImageSaveWithExtraMetadata(SaveImage):
     FUNCTION = "execute"
 
     def execute(self, image=None, filename_prefix="ComfyUI", file_type="png", quality=92, with_workflow=True, meta_key="workflow", metadata_extra=None, prompt=None, extra_pnginfo=None):
-        data = {
-            "result": [''],
-            "ui": {
-                "text": [''],
-                "images": [],
-            }
-        }
         if image is not None:
             if with_workflow is True:
-                extra_pnginfo_new = extra_pnginfo.copy()
-                prompt = prompt.copy()
+                # prompt / extra_pnginfo 在外部调用时可能为 None，需先兜底再 copy
+                extra_pnginfo_new = extra_pnginfo.copy() if extra_pnginfo is not None else None
+                prompt = prompt.copy() if prompt is not None else None
             else:
                 extra_pnginfo_new = None
                 prompt = None
@@ -202,14 +196,16 @@ class SPImageSaveWithExtraMetadata(SaveImage):
             image_path = Path(self.output_dir).joinpath(image["subfolder"], image["filename"])
             img, promptFromImage, metadata = buildMetadata(image_path)
 
-            images = [image]
-            result = metadata
-
-            data["result"] = [result]
-            data["ui"]["images"] = images
+            # saved 的 json 直接作为 data，subfolder 等字段原样透传，与官方 SaveImage 结构一致
+            data = saved
+            data["result"] = (metadata,)
 
         else:
             logger.debug("Source: Empty on CImageSaveWithExtraMetadata")
+            data = {
+                "ui": {"images": []},
+                "result": ({},),
+            }
 
         return data
 
