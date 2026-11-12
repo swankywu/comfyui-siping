@@ -4,8 +4,8 @@ from .ParseFilePath import ParseFilePath
 from .GetImagePath import GetImagePathAndName
 from .GetVideoFileName import GetVideoFileName
 from .VideoMergeLossless import VideoMergeLossless
-from .ImageWithExtraInfo import SPImageLoadWithMetadata 
-from .ImageWithExtraInfo import SPImageSaveWithExtraMetadata
+from .SPImageSaveWithExtraMetadata import SPImageLoadWithMetadata 
+from .SPImageSaveWithExtraMetadata import SPImageSaveWithExtraMetadata
 from .LoadPromptsFromDir import LoadPromptsFromDir
 from .SPEmpty import SPEmpty
 from .LanguageSelect import LanguageSelect
