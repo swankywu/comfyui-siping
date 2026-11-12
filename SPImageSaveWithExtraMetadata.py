@@ -175,7 +175,7 @@ class SPImageSaveWithExtraMetadata(SaveImage):
                 extra_pnginfo_new = None
                 prompt = None
 
-            if metadata_extra is not None and metadata_extra != 'undefined':
+            if metadata_extra is not None and metadata_extra != 'undefined' and str(metadata_extra).strip() != '':
                 try:
                     # metadata_extra = json.loads(f"{{{metadata_extra}}}") // a fix?
                     metadata_extra = {meta_key:json.loads(metadata_extra)}

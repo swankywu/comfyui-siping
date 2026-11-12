@@ -81,7 +81,7 @@ class SPPreviewImage(PreviewImage):
             extra_pnginfo_new = None
             prompt_new = None
 
-        if metadata_extra is not None and metadata_extra != 'undefined':
+        if metadata_extra is not None and metadata_extra != 'undefined' and str(metadata_extra).strip() != '':
             try:
                 metadata_extra = {meta_key: json.loads(metadata_extra)}
             except Exception as e:
