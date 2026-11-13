@@ -251,13 +251,17 @@ class SPImageSaveWithExtraMetadata(SaveImage):
             else:
                 # jpg / webp：通过 EXIF 嵌入元数据
                 exif_bytes = self._build_exif_bytes(prompt, extra_pnginfo)
-                img = img.convert("RGB")
-                if exif_bytes:
-                    img.save(file_path, format=("JPEG" if ext == "jpg" else "WEBP"),
-                             quality=quality, exif=exif_bytes)
+                has_alpha = img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info)
+                if ext == "jpg" or not has_alpha:
+                    # jpg 不支持 alpha；无 alpha 时统一转 RGB 以便写 EXIF
+                    img = img.convert("RGB")
                 else:
-                    img.save(file_path, format=("JPEG" if ext == "jpg" else "WEBP"),
-                             quality=quality)
+                    # webp 支持 alpha：保留 RGBA，透明区域不丢失
+                    img = img.convert("RGBA")
+                save_kwargs = {"quality": quality}
+                if exif_bytes:
+                    save_kwargs["exif"] = exif_bytes
+                img.save(file_path, format=("JPEG" if ext == "jpg" else "WEBP"), **save_kwargs)
 
             results.append({
                 "filename": filename,
