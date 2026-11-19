@@ -20,6 +20,7 @@ from .SPImageFlip import SPImageFlip
 from .SPCropVideo import SPCropVideo
 from .SPPreviewImage import SPPreviewImage
 from .SPDrawBBoxes import SPDrawBBoxes
+from .SPBBoxesToMask import SPBBoxesToMask
 
 # 声明前端扩展目录：ComfyUI 0.3x+ 只有显式导出 WEB_DIRECTORY
 # （或 pyproject.toml 的 [tool.comfy] web）才会把 web/ 下的 JS 注册给浏览器
@@ -50,6 +51,7 @@ NODE_CLASS_MAPPINGS = {
     "siping_SPCropVideo": SPCropVideo,
     "siping_SPPreviewImage": SPPreviewImage,
     "siping_SPDrawBBoxes": SPDrawBBoxes,
+    "siping_SPBBoxesToMask": SPBBoxesToMask,
 
 }
 
@@ -76,6 +78,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "siping_SPCropVideo": "SP Crop Video (裁剪/旋转/翻转视频)",
     "siping_SPPreviewImage": "SP Preview Image (按文件类型预览)",
     "siping_SPDrawBBoxes": "SP Draw BBoxes (中文/自动换行)",
+    "siping_SPBBoxesToMask": "SP BBoxes To Mask (转掩码)",
 }
 
 # 可选：声明这是一个ComfyUI自定义节点模块
